@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AUEM Stock rubans de Scie</title>
+<title>AUEM — Stock Lames de Scie</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -314,12 +314,15 @@ body::before {
       <div class="logo">AUEM</div>
       <div>
         <div class="hdr-title">Stock Lames de Scie</div>
-        <div class="hdr-sub">KANBAN  3 SCIES  HSS + CARBURE</div>
+        <div class="hdr-sub">KANBAN · 3 SCIES · HSS + CARBURE</div>
       </div>
     </div>
-    <div class="sync-pill">
-      <div class="sdot loading" id="sdot"></div>
-      <span id="stime">Sync…</span>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <button class="sync-pill" style="background:none;border:none;cursor:pointer;padding:0;font-size:16px;" onclick="openSettings()" title="Paramètres">⚙️</button>
+      <div class="sync-pill">
+        <div class="sdot loading" id="sdot"></div>
+        <span id="stime">Sync…</span>
+      </div>
     </div>
   </div>
 
@@ -337,6 +340,22 @@ body::before {
     </div>
   </div>
 
+</div>
+
+<!-- MODAL PARAMÈTRES -->
+<div class="modal-bg" id="modal-settings">
+  <div class="modal-box">
+    <div class="modal-title">⚙️ Paramètres</div>
+    <div class="modal-sub">Seuil minimum pour l'alerte de commande</div>
+    <div class="modal-field">
+      <label class="modal-label">Seuil minimum (lames)</label>
+      <input class="modal-inp" id="settings-seuil" type="number" min="1" max="20" value="2" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeSettings()">Annuler</button>
+      <button class="btn-confirm" onclick="confirmSettings()">✓ Enregistrer</button>
+    </div>
+  </div>
 </div>
 
 <!-- MODAL COMMANDE -->
@@ -359,6 +378,7 @@ body::before {
 
 <script>
 var FIREBASE = 'https://ruban-be81a-default-rtdb.europe-west1.firebasedatabase.app/stock_lames.json';
+var FIREBASE_CONFIG = 'https://ruban-be81a-default-rtdb.europe-west1.firebasedatabase.app/config.json';
 var SEUIL_MIN = 2;
 var MAX_BAR = 10; // segments dans la barre kanban
 
@@ -418,6 +438,60 @@ function setDot(st) {
   }
 }
 function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+/* ── CONFIG / PARAMÈTRES ── */
+function loadConfig() {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', FIREBASE_CONFIG, true);
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState !== 4) return;
+    if (xhr.status === 200) {
+      try {
+        var cfg = JSON.parse(xhr.responseText);
+        if (cfg && cfg.seuil_min) SEUIL_MIN = cfg.seuil_min;
+      } catch(e) {}
+    }
+  };
+  xhr.onerror = function() {};
+  xhr.send();
+}
+
+function openSettings() {
+  document.getElementById('settings-seuil').value = SEUIL_MIN;
+  document.getElementById('modal-settings').classList.add('open');
+  setTimeout(function() { document.getElementById('settings-seuil').focus(); document.getElementById('settings-seuil').select(); }, 100);
+}
+
+function closeSettings() {
+  document.getElementById('modal-settings').classList.remove('open');
+}
+
+function confirmSettings() {
+  var newSeuil = parseInt(document.getElementById('settings-seuil').value) || 2;
+  if (newSeuil < 1) { showToast('Minimum 1 lame', '⚠️'); return; }
+  SEUIL_MIN = newSeuil;
+  saveConfig();
+  closeSettings();
+  render();
+  showToast('Seuil minimum changé à ' + SEUIL_MIN + ' lames', '✓');
+}
+
+function saveConfig() {
+  var body = JSON.stringify({ seuil_min: SEUIL_MIN });
+  var xhr = new XMLHttpRequest();
+  xhr.open('PUT', FIREBASE_CONFIG, true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.send(body);
+}
+
+document.getElementById('modal-settings').addEventListener('click', function(e) {
+  if (e.target === this) closeSettings();
+});
+document.getElementById('settings-seuil').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') confirmSettings();
+  if (e.key === 'Escape') closeSettings();
+});
+
 
 function loadFromServer() {
   setDot('loading');
@@ -705,6 +779,7 @@ function showToast(msg, ico) {
 
 /* ── INIT ── */
 loadHist();
+loadConfig();
 loadFromServer();
 </script>
 </body>
